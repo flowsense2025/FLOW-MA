@@ -2,7 +2,9 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useNavigation } from "expo-router";
 import { useEffect } from "react";
+
 export default function Home(){
+    // remove navigation header
     const navigation = useNavigation();
     useEffect(() => {
         navigation.setOptions({ headerShown: false });
