@@ -1,15 +1,13 @@
-import { Text, View } from "react-native";
+import { Text, View, ImageBackground } from "react-native";
+import { useNavigation } from "expo-router";
 
 export default function Index() {
+    const navigation = useNavigation();
+    navigation.setOptions({ headerShown: false });
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text>Edit app/index.tsx to edit this screen.</Text>
-    </View>
+    <ImageBackground 
+        source={require("../assets/images/loginBackground.png")} 
+        style={{flex:1}}></ImageBackground>
+    
   );
 }
