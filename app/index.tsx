@@ -1,23 +1,32 @@
-import { Text, View, ImageBackground, StyleSheet, TouchableOpacity, Button  } from "react-native";
-import { useNavigation } from "expo-router";
+import { View, ImageBackground, StyleSheet, Button  } from "react-native";
+import { useNavigation, Link} from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect } from "react";
+
+// handle login press
+const handleLoginPress = (router: any) => {
+    router.push("/home"); 
+};
+
 export default function Index() {
     const navigation = useNavigation();
     useEffect(() => {
         navigation.setOptions({ headerShown: false });
     }, [navigation]);
   return (
-    <SafeAreaProvider>
+        // display login buttons
+      <SafeAreaProvider>
         <ImageBackground 
             source={require("../assets/images/loginBackground.png")} 
             style={{flex:1}}></ImageBackground>
-
+        
         <View style={styles.loginButton}>
-            <Button  title="Login" color="white" onPress={() => {}} />
+            <Link href="/(tabs)/home" asChild>
+                <Button title="Login" color="white"/>
+            </Link>
         </View>
         <View style={styles.signUpButton}>
-            <Button  title="Sign Up" color="white" onPress={() => {}} />
+            <Button title="Sign Up" color="white"/>
         </View>
     </SafeAreaProvider>
   );
