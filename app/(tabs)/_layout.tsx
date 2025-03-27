@@ -35,7 +35,7 @@ export default function Layout() {
             <Tabs.Screen 
                 name="stats" 
                 options={{ 
-                    tabBarLabel:"Stats" ,
+                    tabBarLabel:"Data" ,
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="stats-chart" size={20} color={"orange"} />
                     ),
