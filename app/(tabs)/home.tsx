@@ -1,7 +1,8 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, ImageBackground, StyleSheet } from "react-native";
 import { useNavigation } from "expo-router";
 import { useEffect } from "react";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 export default function home() {
     // remove navigation header
@@ -9,13 +10,26 @@ export default function home() {
     useEffect(() => {
         navigation.setOptions({ headerShown: false });
     }, [navigation]);
+
     return(
-        <View style={styles.container}>
-      <Text style={styles.text}>Welcome to the Home Screen! TEST</Text>
-    </View>
+        <SafeAreaProvider>
+
+            <ImageBackground 
+                source={require("../../assets/images/homeBackground.png")} 
+                style={styles.background}>
+            </ImageBackground>
+
+        </SafeAreaProvider>
+
     );
 }
 const styles = StyleSheet.create({
+    background: {
+        flex: 1,
+        width: "100%",
+        height: "100%",
+        position: "absolute", 
+    },
     container: {
       flex: 1,
       justifyContent: "center",

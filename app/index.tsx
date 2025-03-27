@@ -13,7 +13,8 @@ export default function Index() {
       <SafeAreaProvider>
         <ImageBackground 
             source={require("../assets/images/LandingPage.png")} 
-            style={{flex:1}}></ImageBackground>
+            style={{flex:1}}>
+        </ImageBackground>
         
         <View style={styles.loginButton}>
             <Link href="/(tabs)/home" asChild>
