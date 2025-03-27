@@ -3,11 +3,6 @@ import { useNavigation, Link} from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect } from "react";
 
-// handle login press
-const handleLoginPress = (router: any) => {
-    router.push("/home"); 
-};
-
 export default function Index() {
     const navigation = useNavigation();
     useEffect(() => {
@@ -18,7 +13,8 @@ export default function Index() {
       <SafeAreaProvider>
         <ImageBackground 
             source={require("../assets/images/LandingPage.png")} 
-            style={{flex:1}}></ImageBackground>
+            style={{flex:1}}>
+        </ImageBackground>
         
         <View style={styles.loginButton}>
             <Link href="/(tabs)/home" asChild>
