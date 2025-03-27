@@ -2,7 +2,7 @@ import { View, Text} from 'react-native'
 
 import { useNavigation } from 'expo-router';
 import { useEffect } from 'react'
-const stats = () =>  {
+export default function stats() {
     const navigation = useNavigation();
     useEffect(() => {
         navigation.setOptions({ headerShown: false });
@@ -13,5 +13,3 @@ const stats = () =>  {
         </View>
     )
 }
-
-export default stats
