@@ -17,7 +17,7 @@ export default function Index() {
         // display login buttons
       <SafeAreaProvider>
         <ImageBackground 
-            source={require("../assets/images/loginBackground.png")} 
+            source={require("../assets/images/LandingPage.png")} 
             style={{flex:1}}></ImageBackground>
         
         <View style={styles.loginButton}>
