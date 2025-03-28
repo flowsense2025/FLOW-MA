@@ -8,6 +8,8 @@ export default function Layout() {
     return (
         <Tabs
             screenOptions={{
+                tabBarIcon: () => null,
+
                 // Styles for the entire tab bar container
                 tabBarStyle: {
                     backgroundColor: "#ffffff",
@@ -18,15 +20,16 @@ export default function Layout() {
                     top: 131, // Moves tab bar up from bottom of screen
                     marginHorizontal: 36,
 
-                    //paddingBottom: 0,
-                    paddingTop: 0,
-                    borderRadius: 20, // Curves the corners of the tab bar
+                    borderRadius: 10, // Curves the corners of the tab bar
                     width: 315,
-                    height: 60,
+                    height: 32,
                     
                 },
+
                 // Optionally style the label text
-                    tabBarLabelStyle: {
+                tabBarLabelStyle: {
+                    position: "absolute",
+                    paddingTop: 11,
                     fontSize: 10,
                     fontWeight: "bold",
                 },
@@ -36,20 +39,12 @@ export default function Layout() {
                 name="current" 
                 options={{ 
                     tabBarLabel:"CURRENT DATA" ,
-                    tabBarIcon: ({ color, size }) => (
-                        // Since no icon name is specified, then it shows white only
-                        <Ionicons size={0} color={"white"} />
-                    ),
                 }} 
             />
             <Tabs.Screen 
                 name="history" 
                 options={{ 
                     tabBarLabel:"HISTORY",
-                    tabBarIcon: ({ color, size }) => (
-                        // Since no icon name is specified, then it shows white only
-                        <Ionicons size={0} color={"white"} />
-                    ),
                 }}
             />
             <Tabs.Screen 
