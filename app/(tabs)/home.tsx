@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, ImageBackground, StyleSheet, Button } from "react-native";
-import { useNavigation, Link } from "expo-router";
+import { useNavigation, Link, useRouter } from "expo-router";
 import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from "react";
@@ -13,10 +13,13 @@ export default function home() {
         navigation.setOptions({ headerShown: false });
     }, [navigation]);
 
-    const handleIconPress = () => {
-      console.log("Icon button pressed!");
-      // You can navigate somewhere too: navigation.navigate("someScreen")
-    };
+    const router = useRouter();
+    
+        const handleIconPress = () => {
+            console.log("Icon button pressed!");
+            router.push('/settings');
+            // You can navigate somewhere too: navigation.navigate("someScreen")
+        };
 
     return(
         <SafeAreaProvider>
