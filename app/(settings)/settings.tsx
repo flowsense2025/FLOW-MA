@@ -5,40 +5,39 @@ import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-export default function current() {
-   const navigation = useNavigation();
+
+export default function settings() {
+    // remove navigation header
+    const navigation = useNavigation();
     useEffect(() => {
         navigation.setOptions({ headerShown: false });
     }, [navigation]);
 
     const router = useRouter();
-    
+
     const handleIconPress = () => {
-        console.log("Icon button pressed!");
-        router.push('/settings');
-        // You can navigate somewhere too: navigation.navigate("someScreen")
+      console.log("Icon button pressed!");
+      router.push('/home');
+      // You can navigate somewhere too: navigation.navigate("someScreen")
     };
-    
-    return (
+
+    return(
         <SafeAreaProvider>
 
             <ImageBackground 
-                source={require("../../../assets/images/homeBackground.png")} 
+                source={require("../../assets/images/homeBackground.png")} 
                 style={styles.background}>
             </ImageBackground>
 
-            <TouchableOpacity style={styles.settingsButton} onPress={handleIconPress}>
-              <Ionicons name="settings-outline" size={24} color="orange" />
+            <TouchableOpacity style={styles.backButton} onPress={handleIconPress}>
+              <Ionicons name="arrow-back-outline" size={24} color="orange" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.exportButton} onPress={handleIconPress}>
-              <Ionicons name="cloud-upload-outline" size={24} color="orange" />
-            </TouchableOpacity>
 
         </SafeAreaProvider>
-    )
-}
 
+    );
+}
 const styles = StyleSheet.create({
     background: {
         flex: 1,
@@ -56,30 +55,19 @@ const styles = StyleSheet.create({
       fontSize: 24,
       fontWeight: "bold",
     },
+    backButton: {
+      position: "absolute",
+      top: 60, // Adjust position as needed
+      left: 20,
+      padding: 10,
+      backgroundColor: "transparent",
+      borderRadius: 50,
+      elevation: 5, // Android shadow
+      shadowOpacity: 0,
+    },
 
-    settingsButton: {
-        position: "absolute",
-        top: 60, // Adjust position as needed
-        right: 20,
-        padding: 10,
-        backgroundColor: "transparent",
-        borderRadius: 50,
-        elevation: 5, // Android shadow
-        shadowOpacity: 0,
-      },
-  
-      exportButton: {
-        position: "absolute",
-        top: 60, // Adjust position as needed
-        right: 60,
-        padding: 10,
-        backgroundColor: "transparent",
-        borderRadius: 50,
-        elevation: 5, // Android shadow
-        shadowOpacity: 0,
-      },
+    
   });
-
 
   // In app/home.tsx
 export const unstable_settings = {
@@ -89,4 +77,3 @@ export const unstable_settings = {
   // You can also try:
   // layout: { tabBar: { visible: false } }
 };
-
