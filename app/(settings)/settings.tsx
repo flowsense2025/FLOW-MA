@@ -5,6 +5,8 @@ import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { getAuth, signOut } from 'firebase/auth'; // Add these imports
+import { auth } from '../../firebaseConfig'; // Adjust path as needed
 
 export default function settings() {
     // remove navigation header
@@ -21,10 +23,16 @@ export default function settings() {
         // You can navigate somewhere too: navigation.navigate("someScreen")
     };
 
-    const handleLogOut = () => {
-        console.log("logged out!");
-        // log out here
-    }
+    const handleLogOut = async () => { // Made async
+        try {
+            await signOut(auth);
+            console.log("User signed out successfully");
+            router.replace('/'); // Navigate to login screen
+        } catch (error: any) {
+            console.error("Sign out error:" + error);
+            alert("Logout Failed" + error.message);
+        }
+    };
     return (
         <SafeAreaProvider>
 
