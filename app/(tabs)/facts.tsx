@@ -6,7 +6,8 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
-  SafeAreaView,
+  Dimensions,
+  StatusBar,
 } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -51,6 +52,7 @@ export default function Facts() {
   const navigation = useNavigation();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("Marine Life");
+  const [viewMode, setViewMode] = useState("gallery"); // "gallery" or "quizlet"
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -68,13 +70,25 @@ export default function Facts() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Fun Facts</Text>
-        <TouchableOpacity onPress={handleSettingsPress}>
-          <Ionicons name="settings-outline" size={24} color="#FF6B35" />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={styles.viewModeToggle} 
+            onPress={() => setViewMode(viewMode === "gallery" ? "quizlet" : "gallery")}
+          >
+            <Ionicons 
+              name={viewMode === "gallery" ? "grid-outline" : "list-outline"} 
+              size={20} 
+              color="#FF6B35" 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSettingsPress}>
+            <Ionicons name="settings-outline" size={24} color="#FF6B35" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Category Tabs */}
@@ -114,10 +128,25 @@ export default function Facts() {
 
       {/* Fun Facts Grid */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.factsGrid}>
+        <View style={[
+          styles.factsGrid, 
+          viewMode === "gallery" && styles.factsGridGallery
+        ]}>
           {filteredFacts.map((fact) => (
-            <TouchableOpacity key={fact.id} style={styles.factCard}>
-              <Image source={fact.image} style={styles.factImage} />
+            <TouchableOpacity 
+              key={fact.id} 
+              style={[
+                styles.factCard,
+                viewMode === "gallery" && styles.factCardGallery
+              ]}
+            >
+              <Image 
+                source={fact.image} 
+                style={[
+                  styles.factImage,
+                  viewMode === "gallery" && styles.factImageGallery
+                ]} 
+              />
               <View style={styles.factContent}>
                 <View style={styles.authorRow}>
                   <Text style={styles.authorText}>
@@ -145,34 +174,21 @@ export default function Facts() {
           ))}
         </View>
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="bar-chart-outline" size={24} color="#FF6B35" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home-outline" size={24} color="#999" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="book-outline" size={24} color="#999" />
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F0F0F0", // Changed to white
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 20 : 65, // Adjusted for status bar
     paddingBottom: 20,
     backgroundColor: "#FFFFFF",
   },
@@ -180,6 +196,15 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "bold",
     color: "#6B4423",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+    paddingRight: 10,
+  },
+  viewModeToggle: {
+    padding: 5,
   },
   categoryContainer: {
     flexDirection: "row",
@@ -220,12 +245,17 @@ const styles = StyleSheet.create({
   factsGrid: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 20,
+    paddingBottom: 100, // Added extra padding for toolbar
+  },
+  factsGridGallery: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 10,
   },
   factCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    marginBottom: 15,
+    marginBottom: 20,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -234,15 +264,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    minHeight: Dimensions.get('window').height - 300, // Nearly full screen height
+  },
+  factCardGallery: {
+    width: "47%",
+    margin: "1.5%",
+    marginBottom: 15,
+    minHeight: 'auto',
   },
   factImage: {
     width: "100%",
-    height: 200,
+    height: Dimensions.get('window').height * 0.4, // 40% of screen height
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
+  factImageGallery: {
+    height: 150,
+  },
   factContent: {
-    padding: 12,
+    padding: 20,
+    flex: 1,
+    justifyContent: "space-between",
   },
   authorRow: {
     marginBottom: 8,
@@ -252,16 +294,16 @@ const styles = StyleSheet.create({
     color: "#999",
   },
   factTitle: {
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 6,
+    marginBottom: 12,
   },
   factDescription: {
-    fontSize: 13,
+    fontSize: 16,
     color: "#666",
-    lineHeight: 18,
-    marginBottom: 10,
+    lineHeight: 24,
+    marginBottom: 20,
   },
   tagContainer: {
     flexDirection: "row",
@@ -280,18 +322,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#FFFFFF",
     fontWeight: "500",
-  },
-  bottomNav: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
-  },
-  navItem: {
-    flex: 1,
-    alignItems: "center",
   },
 });

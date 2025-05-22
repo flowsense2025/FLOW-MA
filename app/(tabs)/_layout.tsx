@@ -15,7 +15,7 @@ export default function Layout() {
                     elevation: 0, // Removes shadow on Android
                     shadowOpacity: 0, // Removes shadow on iOS
                     position: "absolute",
-                    bottom: 50, // Moves tab bar up from bottom of screen
+                    bottom: 35, // Moves tab bar up from bottom of screen
                     marginHorizontal: 36,
 
                     //paddingBottom: 0,
