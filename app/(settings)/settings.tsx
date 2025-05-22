@@ -6,7 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { getAuth, signOut } from 'firebase/auth'; // Add these imports
-import { auth } from '../../firebaseConfig'; // Adjust path as needed
+import  app  from '../../firebaseConfigex'; // Adjust path as needed
+
+const auth = getAuth(app);
 
 export default function settings() {
     // remove navigation header

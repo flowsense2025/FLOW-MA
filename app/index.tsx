@@ -4,7 +4,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
 import { router } from 'expo-router'
-import { auth } from '../firebaseConfig'
+import app from '../firebaseConfigex'
+import { getAuth, signOut } from 'firebase/auth'; // Add these imports
+
+const auth = getAuth(app);
+
 export default function Index() {
     const navigation = useNavigation();
     useEffect(() => {
