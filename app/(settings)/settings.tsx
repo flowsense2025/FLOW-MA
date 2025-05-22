@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { getAuth, signOut } from 'firebase/auth'; // Add these imports
-import  app  from '../../firebaseConfigex'; // Adjust path as needed
+import  app  from '../../firebaseConfig.js'; // Adjust path as needed
 
 const auth = getAuth(app);
 
