@@ -98,7 +98,7 @@ const funFactsData = [
   },
 ];
 
-export default function Facts({ onToolbarVisibilityChange }) {
+export default function Facts({ onToolbarVisibilityChange } : any) {
   const navigation = useNavigation();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("Marine Life");
@@ -136,20 +136,63 @@ export default function Facts({ onToolbarVisibilityChange }) {
   ).current;
 
   // Create pan responder for each card
-  const createPanResponder = (fact) => {
+  // Creates a gesture responder to detect horizontal swipes
+
+  /*
+  PanResponder: A React Native API that helps you track touch gestures.
+
+  gestureState: Contains details about the gesture (like how far the finger moved).
+
+  dx: The horizontal distance moved during the gesture (negative for left, positive for right).
+
+  viewMode === "tinder": This condition ensures that swiping only works in a specific mode (like a Tinder-style card swipe).
+  */
+  const createPanResponder = (fact: any) => {
     return PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return Math.abs(gestureState.dx) > 20 && viewMode === "quizlet";
+        return Math.abs(gestureState.dx) > 20 && viewMode === "tinder";
       },
       onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dx < -50) {
-          showFactDetails(fact, false);
+        if (gestureState.dx < -50) { // If finger moved less than 30 pixels to the left
+          showNextFactCard(fact, false);
         }
       },
     });
   };
 
-  const showFactDetails = (fact, isFromGallery = false) => {
+  // Need to change this to make it for the tinder
+  // This is also used for gallery so just make a new fucntion
+  const showNextFactCard = (fact: any, isFromGallery = false) => {
+    setSelectedFact({ ...fact, isFromGallery });
+    
+    if (isFromGallery && onToolbarVisibilityChange) {
+      onToolbarVisibilityChange(false);
+    }
+    
+    if (isFromGallery) {
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        })
+      ]).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+
+  const showFactDetails = (fact: any, isFromGallery = false) => {
     setSelectedFact({ ...fact, isFromGallery });
     
     if (isFromGallery && onToolbarVisibilityChange) {
@@ -183,7 +226,7 @@ export default function Facts({ onToolbarVisibilityChange }) {
       onToolbarVisibilityChange(true);
     }
     
-    if (selectedFact?.isFromGallery) {
+    if (selectedFact?.isFromGallery) { // Lowkey a fake error, still works wihtout it I think
       Animated.parallel([
         Animated.timing(scaleAnim, {
           toValue: 0,
@@ -209,7 +252,7 @@ export default function Facts({ onToolbarVisibilityChange }) {
     }
   };
 
-  const DetailView = ({ fact }) => {
+  const DetailView = ({ fact } : any) => {
     const isGallery = fact.isFromGallery;
     
     if (isGallery) {
@@ -327,7 +370,7 @@ export default function Facts({ onToolbarVisibilityChange }) {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.viewModeToggle} 
-            onPress={() => setViewMode(viewMode === "gallery" ? "quizlet" : "gallery")}
+            onPress={() => setViewMode(viewMode === "gallery" ? "tinder" : "gallery")}
           >
             <Ionicons 
               name={viewMode === "gallery" ? "grid-outline" : "list-outline"} 
@@ -361,8 +404,12 @@ export default function Facts({ onToolbarVisibilityChange }) {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={[styles.factsGrid, viewMode === "gallery" && styles.factsGridGallery]}>
           {filteredFacts.map((fact) => {
-            const factPanResponder = viewMode === "quizlet" ? createPanResponder(fact) : null;
+            const factPanResponder = viewMode === "tinder" ? createPanResponder(fact) : null;
             
+
+            // This is the 'tinder' mode
+            // And allows the swipe left mechanic to work
+            // Need to adjust this for tinder version
             return (
               <View
                 key={fact.id}
@@ -399,7 +446,7 @@ export default function Facts({ onToolbarVisibilityChange }) {
                     )}
                   </View>
                 </TouchableOpacity>
-                {viewMode === "quizlet" && (
+                {viewMode === "tinder" && (
                   <View style={styles.swipeHint}>
                     <Text style={styles.swipeHintText}>← Swipe left for details</Text>
                   </View>
