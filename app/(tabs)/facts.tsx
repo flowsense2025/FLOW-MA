@@ -14,6 +14,47 @@ import {
 import { useNavigation, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
+// Add this interface definition before the component
+interface FactsProps {
+  onToolbarVisibilityChange?: (visible: boolean) => void;
+}
+
+// Add these interfaces after your imports:
+
+interface FactDetails {
+  commonName: string;
+  scientificName: string;
+  type: string;
+  diet: string;
+  groupName: string;
+  averageLifeSpan: string;
+  size: string;
+  weight: string;
+  longDescription: string;
+}
+
+interface Fact {
+  id: number;
+  image: any;
+  category: string;
+  location: string;  
+  title: string;
+  description: string;
+  author: {
+    name: string;
+    date: string;
+  };
+  details: FactDetails;
+}
+
+interface FactWithDisplay extends Fact {
+  isFromGallery?: boolean;
+}
+
+interface FactsProps {
+  onToolbarVisibilityChange?: (visible: boolean) => void;
+}
+
 // Sample data - replace with your actual data
 const funFactsData = [
   {
@@ -98,28 +139,51 @@ const funFactsData = [
   },
 ];
 
-export default function Facts({ onToolbarVisibilityChange } : any) {
+
+
+
+export default function Facts({ onToolbarVisibilityChange }: FactsProps) {
   const navigation = useNavigation();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("Marine Life");
-  const [viewMode, setViewMode] = useState("gallery");
-  const [selectedFact, setSelectedFact] = useState(null);
+  const [viewMode, setViewMode] = useState("gallery"); // "gallery" or "tinder"
+  const [selectedFact, setSelectedFact] = useState<FactWithDisplay | null>(null);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+  const swipeAnim = useRef(new Animated.Value(0)).current;
+  const nextCardScale = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current; // Add this
+  
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
+
+  // Reset card index when category changes
+  useEffect(() => {
+    setCurrentCardIndex(0);
+  }, [selectedCategory]);
+
+  
 
   const handleSettingsPress = () => {
     router.push("/settings");
   };
 
   const categories = ["Marine Life", "Conservation", "Canada"];
-  const filteredFacts = funFactsData.filter(
-    (fact) => fact.category === selectedCategory
-  );
+  
+  // Filter facts based on selected category
+  const filteredFacts = funFactsData.filter((fact) => {
+    if (selectedCategory === "Canada") {
+      // For Canada category, show facts that have the Canada tag
+      return fact.category === "Marine Life" && fact.id < 3;
+    }
+    return fact.category === selectedCategory;
+  });
+
+  
 
   // Pan responder for swiping right on detail view
   const detailPanResponder = useRef(
@@ -135,34 +199,81 @@ export default function Facts({ onToolbarVisibilityChange } : any) {
     })
   ).current;
 
-  // Create pan responder for each card
-  // Creates a gesture responder to detect horizontal swipes
+  // Create pan responder for Tinder-style cards
+  const createTinderPanResponder = () => {
+  return PanResponder.create({
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      return Math.abs(gestureState.dx) > 5;
+    },
+    onPanResponderMove: (evt, gestureState) => {
+      swipeAnim.setValue(gestureState.dx);
+    },
+    onPanResponderRelease: (evt, gestureState) => {
+      const screenWidth = Dimensions.get('window').width;
+      const swipeThreshold = screenWidth * 0.25;
+      
+      if (gestureState.dx < -swipeThreshold) {
+        // First, start fading out
+        Animated.parallel([
+          Animated.timing(swipeAnim, {
+            toValue: -screenWidth,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 200, // Slightly faster than swipe
+            useNativeDriver: true,
+          })
+        ]).start(() => {
+          // Make sure card is fully invisible before changing content
+          fadeAnim.setValue(0);
+          
+          // Update index
+          if (currentCardIndex < filteredFacts.length - 1) {
+            setCurrentCardIndex(currentCardIndex + 1);
+          } else {
+            setCurrentCardIndex(0);
+          }
+          
+          // Reset position while still invisible
+          swipeAnim.setValue(0);
+          
+          // Small delay before fading in to ensure content has updated
+          setTimeout(() => {
+            Animated.timing(fadeAnim, {
+              toValue: 1,
+              duration: 300,
+              useNativeDriver: true,
+            }).start();
+          }, 50); // 50ms delay
+        });
+      } else {
+        // Return to center
+        Animated.spring(swipeAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
+};
 
-  /*
-  PanResponder: A React Native API that helps you track touch gestures.
-
-  gestureState: Contains details about the gesture (like how far the finger moved).
-
-  dx: The horizontal distance moved during the gesture (negative for left, positive for right).
-
-  viewMode === "tinder": This condition ensures that swiping only works in a specific mode (like a Tinder-style card swipe).
-  */
-  const createPanResponder = (fact: any) => {
+  // Create pan responder for each card (used in old quizlet mode, kept for compatibility)
+  const createPanResponder = (fact: Fact) => {
     return PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
         return Math.abs(gestureState.dx) > 20 && viewMode === "tinder";
       },
       onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dx < -50) { // If finger moved less than 30 pixels to the left
-          showNextFactCard(fact, false);
+        if (gestureState.dx < -50) {
+          showFactDetails(fact, false);
         }
       },
     });
   };
 
-  // Need to change this to make it for the tinder
-  // This is also used for gallery so just make a new fucntion
-  const showNextFactCard = (fact: any, isFromGallery = false) => {
+  const showFactDetails = (fact: Fact, isFromGallery: boolean = false) => {
     setSelectedFact({ ...fact, isFromGallery });
     
     if (isFromGallery && onToolbarVisibilityChange) {
@@ -176,7 +287,7 @@ export default function Facts({ onToolbarVisibilityChange } : any) {
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.timing(opacityAnim, {
+        Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 300,
           useNativeDriver: true,
@@ -191,49 +302,19 @@ export default function Facts({ onToolbarVisibilityChange } : any) {
     }
   };
 
-
-  const showFactDetails = (fact: any, isFromGallery = false) => {
-    setSelectedFact({ ...fact, isFromGallery });
-    
-    if (isFromGallery && onToolbarVisibilityChange) {
-      onToolbarVisibilityChange(false);
-    }
-    
-    if (isFromGallery) {
-      Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        })
-      ]).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
-  };
-
-  const hideFactDetails = () => {
+const hideFactDetails = () => {
     if (selectedFact?.isFromGallery && onToolbarVisibilityChange) {
       onToolbarVisibilityChange(true);
     }
     
-    if (selectedFact?.isFromGallery) { // Lowkey a fake error, still works wihtout it I think
+    if (selectedFact?.isFromGallery) {
       Animated.parallel([
         Animated.timing(scaleAnim, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.timing(opacityAnim, {
+        Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
@@ -252,7 +333,7 @@ export default function Facts({ onToolbarVisibilityChange } : any) {
     }
   };
 
-  const DetailView = ({ fact } : any) => {
+  const DetailView = ({ fact }: { fact: FactWithDisplay }) => {
     const isGallery = fact.isFromGallery;
     
     if (isGallery) {
@@ -276,7 +357,7 @@ export default function Facts({ onToolbarVisibilityChange } : any) {
               styles.modalDetailContainer,
               {
                 transform: [{ scale: scaleAnim }],
-                opacity: opacityAnim,
+                opacity: fadeAnim,
               },
             ]}
           >
@@ -370,10 +451,20 @@ export default function Facts({ onToolbarVisibilityChange } : any) {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.viewModeToggle} 
-            onPress={() => setViewMode(viewMode === "gallery" ? "tinder" : "gallery")}
+            onPress={() => {
+              const newMode = viewMode === "gallery" ? "tinder" : "gallery";
+              setViewMode(newMode);
+              
+              // Reset animations when switching to tinder
+              if (newMode === "tinder") {
+                setCurrentCardIndex(0);
+                fadeAnim.setValue(1);
+                swipeAnim.setValue(0);
+              }
+            }}
           >
             <Ionicons 
-              name={viewMode === "gallery" ? "grid-outline" : "list-outline"} 
+              name={viewMode === "gallery" ? "grid-outline" : "copy-outline"} 
               size={20} 
               color="#FF6B35" 
             />
@@ -401,28 +492,23 @@ export default function Facts({ onToolbarVisibilityChange } : any) {
         </ScrollView>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={[styles.factsGrid, viewMode === "gallery" && styles.factsGridGallery]}>
-          {filteredFacts.map((fact) => {
-            const factPanResponder = viewMode === "tinder" ? createPanResponder(fact) : null;
-            
-
-            // This is the 'tinder' mode
-            // And allows the swipe left mechanic to work
-            // Need to adjust this for tinder version
-            return (
+      {/* Fun Facts - Different layouts for different modes */}
+      {viewMode === "gallery" ? (
+        // Gallery Mode - Grid Layout
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <View style={[styles.factsGrid, styles.factsGridGallery]}>
+            {filteredFacts.map((fact) => (
               <View
                 key={fact.id}
-                {...(factPanResponder ? factPanResponder.panHandlers : {})}
-                style={[styles.factCard, viewMode === "gallery" && styles.factCardGallery]}
+                style={[styles.factCard, styles.factCardGallery]}
               >
                 <TouchableOpacity
-                  onPress={() => showFactDetails(fact, viewMode === "gallery")}
+                  onPress={() => showFactDetails(fact, true)}
                   activeOpacity={0.7}
                 >
                   <Image 
                     source={fact.image} 
-                    style={[styles.factImage, viewMode === "gallery" && styles.factImageGallery]} 
+                    style={[styles.factImage, styles.factImageGallery]} 
                   />
                   <View style={styles.factContent}>
                     <View style={styles.authorRow}>
@@ -446,16 +532,82 @@ export default function Facts({ onToolbarVisibilityChange } : any) {
                     )}
                   </View>
                 </TouchableOpacity>
-                {viewMode === "tinder" && (
-                  <View style={styles.swipeHint}>
-                    <Text style={styles.swipeHintText}>← Swipe left for details</Text>
-                  </View>
-                )}
               </View>
-            );
-          })}
+            ))}
+          </View>
+        </ScrollView>
+      ) : (
+        // Tinder Mode - Card Stack
+        <View style={styles.tinderContainer}>
+          {filteredFacts.length > 0 && (
+            <>
+              
+              {/* Current card */}
+              <Animated.View
+                {...createTinderPanResponder().panHandlers}
+                style={[
+                  styles.factCard,
+                  styles.tinderCard,
+                  {
+                    opacity: fadeAnim, // This creates the fade effect
+                    transform: [
+                      { translateX: swipeAnim },
+                      {
+                        rotate: swipeAnim.interpolate({
+                          inputRange: [-200, 0, 200],
+                          outputRange: ['-10deg', '0deg', '10deg'],
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <TouchableOpacity
+                  onPress={() => showFactDetails(filteredFacts[currentCardIndex], false)}
+                  activeOpacity={0.9}
+                  style={{ flex: 1 }} 
+                >
+                  <Image 
+                    source={filteredFacts[currentCardIndex].image} 
+                    style={styles.factImage} 
+                  />
+                  <View style={styles.factContent}>
+                    <View style={styles.authorRow}>
+                      <Text style={styles.authorText}>
+                        {filteredFacts[currentCardIndex].author.name} | {filteredFacts[currentCardIndex].author.date}
+                      </Text>
+                    </View>
+                    <Text style={styles.factTitle}>{filteredFacts[currentCardIndex].title}</Text>
+                    <Text style={styles.factDescription}>
+                      {filteredFacts[currentCardIndex].description}
+                    </Text>
+                    {filteredFacts[currentCardIndex].category === "Marine Life" && (
+                      <View style={styles.tagContainer}>
+                        <View style={styles.tag}>
+                          <Text style={styles.tagText}>{filteredFacts[currentCardIndex].category}</Text>
+                        </View>
+                        {filteredFacts[currentCardIndex].id < 3 && (
+                          <View style={[styles.tag, styles.canadaTag]}>
+                            <Text style={styles.tagText}>Canada</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+              
+              {/* Swipe indicators */}
+              <View style={styles.swipeIndicators}>
+                <Text style={styles.swipeText}>← Swipe for next card</Text>
+                <Text style={styles.cardCounter}>
+                  {currentCardIndex + 1} / {filteredFacts.length}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
-      </ScrollView>
+      )}
 
       {selectedFact && <DetailView fact={selectedFact} />}
     </View>
@@ -545,17 +697,55 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-    minHeight: Dimensions.get('window').height - 300,
   },
   factCardGallery: {
     width: "47%",
     margin: "1.5%",
     marginBottom: 15,
-    minHeight: 'auto',
+  },
+  tinderContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    marginBottom: Dimensions.get('window').height * 0.15,
+  },
+  tinderCard: {
+    position: "absolute",
+    width: Dimensions.get('window').width - 40,
+    height: Dimensions.get('window').height * 0.63,
+    marginBottom: 0,
+  },
+  nextCard: {
+    opacity: 1.0,
+    transform: [{ scale: 1 }],
+  },
+  swipeIndicators: {
+    position: "absolute",
+    bottom: -Dimensions.get('window').height * 0.025,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingHorizontal: 20,
+  },
+  swipeText: {
+    fontSize: 12,
+    color: "#666",
+    fontStyle: "italic",
+  },
+  cardCounter: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center", // Do - 15 for adjustment
+    marginLeft: ((Dimensions.get('window').width - 40) / 2) - 15,
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "bold",
+    
   },
   factImage: {
     width: "100%",
-    height: Dimensions.get('window').height * 0.4,
+    height: Dimensions.get('window').height * 0.35,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
@@ -580,11 +770,18 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 12,
   },
-  factDescription: {
+  factTitleGallery: {
     fontSize: 16,
+  },
+  factDescription: {
+    fontSize: 14,
     color: "#666",
     lineHeight: 24,
     marginBottom: 20,
+  },
+  factDescriptionGallery: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   tagContainer: {
     flexDirection: "row",
