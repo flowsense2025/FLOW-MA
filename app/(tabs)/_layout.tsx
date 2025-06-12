@@ -51,7 +51,8 @@ export default function Layout() {
                     ),
                 }}
             />
-            <Tabs.Screen name="facts" 
+            <Tabs.Screen 
+                name="facts" 
                 options={{ 
                     tabBarLabel:"Facts", 
                     tabBarIcon: ({ color, size }) => (

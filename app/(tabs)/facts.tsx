@@ -14,6 +14,47 @@ import {
 import { useNavigation, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
+// Add this interface definition before the component
+interface FactsProps {
+  onToolbarVisibilityChange?: (visible: boolean) => void;
+}
+
+// Add these interfaces after your imports:
+
+interface FactDetails {
+  commonName: string;
+  scientificName: string;
+  type: string;
+  diet: string;
+  groupName: string;
+  averageLifeSpan: string;
+  size: string;
+  weight: string;
+  longDescription: string;
+}
+
+interface Fact {
+  id: number;
+  image: any;
+  category: string;
+  location: string;  
+  title: string;
+  description: string;
+  author: {
+    name: string;
+    date: string;
+  };
+  details: FactDetails;
+}
+
+interface FactWithDisplay extends Fact {
+  isFromGallery?: boolean;
+}
+
+interface FactsProps {
+  onToolbarVisibilityChange?: (visible: boolean) => void;
+}
+
 // Sample data - replace with your actual data
 const funFactsData = [
   {
@@ -98,28 +139,53 @@ const funFactsData = [
   },
 ];
 
-export default function Facts({ onToolbarVisibilityChange }) {
+
+
+
+export default function Facts({ onToolbarVisibilityChange }: FactsProps) {
   const navigation = useNavigation();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("Marine Life");
-  const [viewMode, setViewMode] = useState("gallery");
-  const [selectedFact, setSelectedFact] = useState(null);
+  const [viewMode, setViewMode] = useState("gallery"); // "gallery" or "tinder"
+  const [selectedFact, setSelectedFact] = useState<FactWithDisplay | null>(null);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+  const swipeAnim = useRef(new Animated.Value(0)).current;
+  const nextCardScale = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current; // Add this
+  const tinderCardOpacity = useRef(new Animated.Value(1)).current;  // For Tinder card fade
+  const detailScale = useRef(new Animated.Value(0)).current;  // For detail scale
+  
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
+
+  // Reset card index when category changes
+  useEffect(() => {
+    setCurrentCardIndex(0);
+  }, [selectedCategory]);
+
+  
 
   const handleSettingsPress = () => {
     router.push("/settings");
   };
 
   const categories = ["Marine Life", "Conservation", "Canada"];
-  const filteredFacts = funFactsData.filter(
-    (fact) => fact.category === selectedCategory
-  );
+  
+  // Filter facts based on selected category
+  const filteredFacts = funFactsData.filter((fact) => {
+    if (selectedCategory === "Canada") {
+      // For Canada category, show facts that have the Canada tag
+      return fact.category === "Marine Life" && fact.id < 3;
+    }
+    return fact.category === selectedCategory;
+  });
+
+  
 
   // Pan responder for swiping right on detail view
   const detailPanResponder = useRef(
@@ -135,190 +201,200 @@ export default function Facts({ onToolbarVisibilityChange }) {
     })
   ).current;
 
-  // Create pan responder for each card
-  const createPanResponder = (fact) => {
+  // Create pan responder for Tinder-style cards
+  const createTinderPanResponder = () => {
+  return PanResponder.create({
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      return Math.abs(gestureState.dx) > 5;
+    },
+    onPanResponderMove: (evt, gestureState) => {
+      swipeAnim.setValue(gestureState.dx);
+    },
+    onPanResponderRelease: (evt, gestureState) => {
+      const screenWidth = Dimensions.get('window').width;
+      const swipeThreshold = screenWidth * 0.25;
+      
+      if (gestureState.dx < -swipeThreshold) {
+        // First, start fading out
+        Animated.parallel([
+          Animated.timing(swipeAnim, {
+            toValue: -screenWidth,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 200, // Slightly faster than swipe
+            useNativeDriver: true,
+          })
+        ]).start(() => {
+          // Make sure card is fully invisible before changing content
+          fadeAnim.setValue(0);
+          
+          // Update index
+          if (currentCardIndex < filteredFacts.length - 1) {
+            setCurrentCardIndex(currentCardIndex + 1);
+          } else {
+            setCurrentCardIndex(0);
+          }
+          
+          // Reset position while still invisible
+          swipeAnim.setValue(0);
+          
+          // Small delay before fading in to ensure content has updated
+          setTimeout(() => {
+            Animated.timing(fadeAnim, {
+              toValue: 1,
+              duration: 300,
+              useNativeDriver: true,
+            }).start();
+          }, 50); // 50ms delay
+        });
+      } else {
+        // Return to center
+        Animated.spring(swipeAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
+};
+
+  // Create pan responder for each card (used in old quizlet mode, kept for compatibility)
+  const createPanResponder = (fact: Fact) => {
     return PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return Math.abs(gestureState.dx) > 20 && viewMode === "quizlet";
+        return Math.abs(gestureState.dx) > 20 && viewMode === "tinder";
       },
       onPanResponderRelease: (evt, gestureState) => {
         if (gestureState.dx < -50) {
-          showFactDetails(fact, false);
+          showFactDetails(fact);
         }
       },
     });
   };
 
-  const showFactDetails = (fact, isFromGallery = false) => {
-    setSelectedFact({ ...fact, isFromGallery });
+  const showFactDetails = (fact: Fact) => {
+    setSelectedFact({ ...fact });
+
+    if (viewMode === "tinder") {
+      opacityAnim.setValue(1); // Make sure card is visible
+    }
+  
+    setSelectedFact(fact);
     
-    if (isFromGallery && onToolbarVisibilityChange) {
+    if (onToolbarVisibilityChange) {
       onToolbarVisibilityChange(false);
     }
     
-    if (isFromGallery) {
       Animated.parallel([
         Animated.timing(scaleAnim, {
           toValue: 1,
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.timing(opacityAnim, {
+        Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 300,
           useNativeDriver: true,
         })
       ]).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
+   
   };
 
   const hideFactDetails = () => {
-    if (selectedFact?.isFromGallery && onToolbarVisibilityChange) {
-      onToolbarVisibilityChange(true);
+    // Always show toolbar again (for both modes)
+    if (onToolbarVisibilityChange) {
+      onToolbarVisibilityChange(false);
     }
     
-    if (selectedFact?.isFromGallery) {
-      Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        })
-      ]).start(() => {
-        setSelectedFact(null);
-      });
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: Dimensions.get('window').width,
+    // Use the same zoom-out animation for both modes
+    Animated.parallel([
+      Animated.timing(scaleAnim, {
+        toValue: 0,
         duration: 300,
         useNativeDriver: true,
-      }).start(() => {
-        setSelectedFact(null);
-      });
-    }
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      setSelectedFact(null); // No idea what this is for
+      
+      // Reset tinder card visibility after animation completes
+      if (viewMode === "tinde") {
+        opacityAnim.setValue(1); // Ensure tinder card is visible
+        swipeAnim.setValue(0);   // Reset position too
+        fadeAnim.setValue(1);
+      }
+    });
   };
 
-  const DetailView = ({ fact }) => {
-    const isGallery = fact.isFromGallery;
-    
-    if (isGallery) {
-      return (
-        <>
-          <Animated.View 
-            style={[
-              styles.modalOverlay,
-              { opacity: opacityAnim }
-            ]}
-          >
-            <TouchableOpacity 
-              style={StyleSheet.absoluteFillObject} 
-              onPress={hideFactDetails}
-              activeOpacity={1}
-            />
-          </Animated.View>
-          
-          <Animated.View 
-            style={[
-              styles.modalDetailContainer,
-              {
-                transform: [{ scale: scaleAnim }],
-                opacity: opacityAnim,
-              },
-            ]}
-          >
-            <TouchableOpacity style={styles.modalCloseButton} onPress={hideFactDetails}>
-              <Ionicons name="close" size={28} color="#333" />
-            </TouchableOpacity>
-            
-            <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
-              <Image source={fact.image} style={styles.modalDetailImage} />
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLocation}>{fact.location}</Text>
-                <Text style={styles.detailTitle}>{fact.title}</Text>
-                <View style={styles.didYouKnowCard}>
-                  <Text style={styles.didYouKnowTitle}>Did you know?</Text>
-                  <Text style={styles.didYouKnowText}>{fact.description}</Text>
-                </View>
-                <View style={styles.factsCard}>
-                  {Object.entries({
-                    'Common Name': fact.details.commonName,
-                    'Scientific Name': fact.details.scientificName,
-                    'Type': fact.details.type,
-                    'Diet': fact.details.diet,
-                    'Group Name': fact.details.groupName,
-                    'Average Life Span': fact.details.averageLifeSpan,
-                    'Size': fact.details.size,
-                    'Weight': fact.details.weight,
-                  }).map(([label, value]) => (
-                    <View key={label} style={styles.factRow}>
-                      <Text style={styles.factLabel}>{label}:</Text>
-                      <Text style={styles.factValue}>{value}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text style={styles.longDescription}>{fact.details.longDescription}</Text>
-              </View>
-            </ScrollView>
-          </Animated.View>
-        </>
-      );
-    } else {
-      return (
-        <Animated.View 
-          style={[
-            styles.detailContainer,
-            { transform: [{ translateX: slideAnim }] }
-          ]}
-          {...detailPanResponder.panHandlers}
-        >
-          <TouchableOpacity style={styles.backButton} onPress={hideFactDetails}>
-            <Ionicons name="chevron-back" size={28} color="#333" />
-          </TouchableOpacity>
-          
-          <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
-            <Image source={fact.image} style={styles.detailImage} />
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLocation}>{fact.location}</Text>
-              <Text style={styles.detailTitle}>{fact.title}</Text>
-              <View style={styles.didYouKnowCard}>
-                <Text style={styles.didYouKnowTitle}>Did you know?</Text>
-                <Text style={styles.didYouKnowText}>{fact.description}</Text>
-              </View>
-              <View style={styles.factsCard}>
-                {Object.entries({
-                  'Common Name': fact.details.commonName,
-                  'Scientific Name': fact.details.scientificName,
-                  'Type': fact.details.type,
-                  'Diet': fact.details.diet,
-                  'Group Name': fact.details.groupName,
-                  'Average Life Span': fact.details.averageLifeSpan,
-                  'Size': fact.details.size,
-                  'Weight': fact.details.weight,
-                }).map(([label, value]) => (
-                  <View key={label} style={styles.factRow}>
-                    <Text style={styles.factLabel}>{label}:</Text>
-                    <Text style={styles.factValue}>{value}</Text>
-                  </View>
-                ))}
-              </View>
-              <Text style={styles.longDescription}>{fact.details.longDescription}</Text>
+  const DetailView = ({ fact }: { fact: Fact }) => {
+  return (
+    <>
+      <Animated.View 
+        style={[
+          styles.modalOverlay,
+          { opacity: fadeAnim }  // Make sure this is fadeAnim, not opacityAnim
+        ]}
+      >
+        <TouchableOpacity 
+          style={StyleSheet.absoluteFillObject} 
+          onPress={hideFactDetails}
+          activeOpacity={1}
+        />
+      </Animated.View>
+      
+      <Animated.View 
+        style={[
+          styles.modalDetailContainer,
+          {
+            transform: [{ scale: scaleAnim }],
+            opacity: fadeAnim,
+          },
+        ]}
+      >
+        <TouchableOpacity style={styles.modalCloseButton} onPress={hideFactDetails} activeOpacity={1}>
+          <Ionicons name="close" size={28} color="#333" />
+        </TouchableOpacity>
+        
+        <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
+          <Image source={fact.image} style={styles.modalDetailImage} />
+          <View style={styles.detailContent}>
+            <Text style={styles.detailLocation}>{fact.location}</Text>
+            <Text style={styles.detailTitle}>{fact.title}</Text>
+            <View style={styles.didYouKnowCard}>
+              <Text style={styles.didYouKnowTitle}>Did you know?</Text>
+              <Text style={styles.didYouKnowText}>{fact.description}</Text>
             </View>
-          </ScrollView>
-        </Animated.View>
-      );
-    }
-  };
+            <View style={styles.factsCard}>
+              {Object.entries({
+                'Common Name': fact.details.commonName,
+                'Scientific Name': fact.details.scientificName,
+                'Type': fact.details.type,
+                'Diet': fact.details.diet,
+                'Group Name': fact.details.groupName,
+                'Average Life Span': fact.details.averageLifeSpan,
+                'Size': fact.details.size,
+                'Weight': fact.details.weight,
+              }).map(([label, value]) => (
+                <View key={label} style={styles.factRow}>
+                  <Text style={styles.factLabel}>{label}:</Text>
+                  <Text style={styles.factValue}>{value}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.longDescription}>{fact.details.longDescription}</Text>
+          </View>
+        </ScrollView>
+      </Animated.View>
+    </>
+  );
+};
 
   return (
     <View style={styles.container}>
@@ -327,10 +403,20 @@ export default function Facts({ onToolbarVisibilityChange }) {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.viewModeToggle} 
-            onPress={() => setViewMode(viewMode === "gallery" ? "quizlet" : "gallery")}
+            onPress={() => {
+              const newMode = viewMode === "gallery" ? "tinder" : "gallery";
+              setViewMode(newMode);
+              
+              // Reset animations when switching to tinder
+              if (newMode === "tinder") {
+                setCurrentCardIndex(0);
+                fadeAnim.setValue(1);
+                swipeAnim.setValue(0);
+              }
+            }}
           >
             <Ionicons 
-              name={viewMode === "gallery" ? "grid-outline" : "list-outline"} 
+              name={viewMode === "gallery" ? "grid-outline" : "copy-outline"} 
               size={20} 
               color="#FF6B35" 
             />
@@ -358,24 +444,23 @@ export default function Facts({ onToolbarVisibilityChange }) {
         </ScrollView>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={[styles.factsGrid, viewMode === "gallery" && styles.factsGridGallery]}>
-          {filteredFacts.map((fact) => {
-            const factPanResponder = viewMode === "quizlet" ? createPanResponder(fact) : null;
-            
-            return (
+      {/* Fun Facts - Different layouts for different modes */}
+      {viewMode === "gallery" ? (
+        // Gallery Mode - Grid Layout
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <View style={[styles.factsGrid, styles.factsGridGallery]}>
+            {filteredFacts.map((fact) => (
               <View
                 key={fact.id}
-                {...(factPanResponder ? factPanResponder.panHandlers : {})}
-                style={[styles.factCard, viewMode === "gallery" && styles.factCardGallery]}
+                style={[styles.factCard, styles.factCardGallery]}
               >
                 <TouchableOpacity
-                  onPress={() => showFactDetails(fact, viewMode === "gallery")}
+                  onPress={() => showFactDetails(fact)}
                   activeOpacity={0.7}
                 >
                   <Image 
                     source={fact.image} 
-                    style={[styles.factImage, viewMode === "gallery" && styles.factImageGallery]} 
+                    style={[styles.factImage, styles.factImageGallery]} 
                   />
                   <View style={styles.factContent}>
                     <View style={styles.authorRow}>
@@ -399,16 +484,82 @@ export default function Facts({ onToolbarVisibilityChange }) {
                     )}
                   </View>
                 </TouchableOpacity>
-                {viewMode === "quizlet" && (
-                  <View style={styles.swipeHint}>
-                    <Text style={styles.swipeHintText}>← Swipe left for details</Text>
-                  </View>
-                )}
               </View>
-            );
-          })}
+            ))}
+          </View>
+        </ScrollView>
+      ) : (
+        // Tinder Mode - Card Stack
+        <View style={styles.tinderContainer}>
+          {filteredFacts.length > 0 && (
+            <>
+              
+              {/* Current card */}
+              <Animated.View
+                {...createTinderPanResponder().panHandlers}
+                style={[
+                  styles.factCard,
+                  styles.tinderCard,
+                  {
+                    opacity: fadeAnim, // This creates the fade effect
+                    transform: [
+                      { translateX: swipeAnim },
+                      {
+                        rotate: swipeAnim.interpolate({
+                          inputRange: [-200, 0, 200],
+                          outputRange: ['-10deg', '0deg', '10deg'],
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <TouchableOpacity
+                  onPress={() => showFactDetails(filteredFacts[currentCardIndex])}
+                  activeOpacity={0.9}
+                  style={{ flex: 1 }} 
+                >
+                  <Image 
+                    source={filteredFacts[currentCardIndex].image} 
+                    style={styles.factImage} 
+                  />
+                  <View style={styles.factContent}>
+                    <View style={styles.authorRow}>
+                      <Text style={styles.authorText}>
+                        {filteredFacts[currentCardIndex].author.name} | {filteredFacts[currentCardIndex].author.date}
+                      </Text>
+                    </View>
+                    <Text style={styles.factTitle}>{filteredFacts[currentCardIndex].title}</Text>
+                    <Text style={styles.factDescription}>
+                      {filteredFacts[currentCardIndex].description}
+                    </Text>
+                    {filteredFacts[currentCardIndex].category === "Marine Life" && (
+                      <View style={styles.tagContainer}>
+                        <View style={styles.tag}>
+                          <Text style={styles.tagText}>{filteredFacts[currentCardIndex].category}</Text>
+                        </View>
+                        {filteredFacts[currentCardIndex].id < 3 && (
+                          <View style={[styles.tag, styles.canadaTag]}>
+                            <Text style={styles.tagText}>Canada</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+              
+              {/* Swipe indicators */}
+              <View style={styles.swipeIndicators}>
+                <Text style={styles.swipeText}>← Swipe for next card</Text>
+                <Text style={styles.cardCounter}>
+                  {currentCardIndex + 1} / {filteredFacts.length}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
-      </ScrollView>
+      )}
 
       {selectedFact && <DetailView fact={selectedFact} />}
     </View>
@@ -498,17 +649,55 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-    minHeight: Dimensions.get('window').height - 300,
   },
   factCardGallery: {
     width: "47%",
     margin: "1.5%",
     marginBottom: 15,
-    minHeight: 'auto',
+  },
+  tinderContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    marginBottom: Dimensions.get('window').height * 0.15,
+  },
+  tinderCard: {
+    position: "absolute",
+    width: Dimensions.get('window').width - 40,
+    height: Dimensions.get('window').height * 0.63,
+    marginBottom: 0,
+  },
+  nextCard: {
+    opacity: 1.0,
+    transform: [{ scale: 1 }],
+  },
+  swipeIndicators: {
+    position: "absolute",
+    bottom: -Dimensions.get('window').height * 0.025,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingHorizontal: 20,
+  },
+  swipeText: {
+    fontSize: 12,
+    color: "#666",
+    fontStyle: "italic",
+  },
+  cardCounter: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center", // Do - 15 for adjustment
+    marginLeft: ((Dimensions.get('window').width - 40) / 2) - 15,
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "bold",
+    
   },
   factImage: {
     width: "100%",
-    height: Dimensions.get('window').height * 0.4,
+    height: Dimensions.get('window').height * 0.35,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
@@ -533,11 +722,18 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 12,
   },
-  factDescription: {
+  factTitleGallery: {
     fontSize: 16,
+  },
+  factDescription: {
+    fontSize: 14,
     color: "#666",
     lineHeight: 24,
     marginBottom: 20,
+  },
+  factDescriptionGallery: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   tagContainer: {
     flexDirection: "row",
@@ -664,10 +860,10 @@ const styles = StyleSheet.create({
   },
   modalDetailContainer: {
     position: "absolute",
-    top: 40,
-    left: 20,
-    right: 20,
-    bottom: 40,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     zIndex: 1000,
@@ -680,9 +876,9 @@ const styles = StyleSheet.create({
   },
   modalCloseButton: {
     position: "absolute",
-    top: 10,
-    right: 10,
-    padding: 10,
+    top: 50,
+    right: 20,
+    padding: 5,
     zIndex: 1001,
     backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 20,
