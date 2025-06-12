@@ -1,307 +1,196 @@
-import React from "react";
-import { View, Text, ImageBackground, StyleSheet, TouchableOpacity } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
-import { Ionicons } from '@expo/vector-icons';
-import { useEffect } from "react";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useESP32BLE } from "../../hooks/useESP32BLE"; // Import ESP32 hook
+import { useState, useEffect } from 'react';
+import { Platform, PermissionsAndroid, Alert } from 'react-native';
 
-export default function home() {
-    // Remove navigation header
-    const navigation = useNavigation();
-    useEffect(() => {
-        navigation.setOptions({ headerShown: false });
-    }, [navigation]);
-
-    const router = useRouter();
-
-    // ESP32 BLE functionality
-    const {
-        scanForESP32,
-        connectToESP32,
-        disconnectFromESP32,
-        sendDataToESP32,
-        allDevices,
-        connectedDevice,
-        receivedData,
-        isScanning,
-        deviceInfo,
-    } = useESP32BLE();
-
-    const handleSettingsPress = () => {
-        console.log("Settings button pressed!");
-        router.push('/settings');
-    };
-
-    const handleExportPress = () => {
-        console.log("Export button pressed!");
-        // Add your export logic here
-    };
-
-    const handleESP32Press = () => {
-        if (connectedDevice) {
-            disconnectFromESP32();
-        } else {
-            scanForESP32();
-        }
-    };
-
-    const handleDeviceSelect = (device: any) => {
-        connectToESP32(device);
-    };
-
-    const sendTestCommand = () => {
-        // Send a test command to your ESP32
-        sendDataToESP32("LED_ON");
-    };
-
-    return(
-        <SafeAreaProvider>
-            <ImageBackground
-                source={require("../../assets/images/homeBackground.png")}
-                style={styles.background}>
-            </ImageBackground>
-
-            {/* Existing buttons */}
-            <TouchableOpacity style={styles.settingsButton} onPress={handleSettingsPress}>
-                <Ionicons name="settings-outline" size={24} color="orange" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.exportButton} onPress={handleExportPress}>
-                <Ionicons name="cloud-upload-outline" size={24} color="orange" />
-            </TouchableOpacity>
-
-            {/* ESP32 Connection Button */}
-            <TouchableOpacity style={styles.esp32Button} onPress={handleESP32Press}>
-                <Ionicons
-                    name={connectedDevice ? "hardware-chip" : "hardware-chip-outline"}
-                    size={24}
-                    color={connectedDevice ? "#4CAF50" : "orange"}
-                />
-            </TouchableOpacity>
-
-            {/* ESP32 Status */}
-            <View style={styles.statusContainer}>
-                {connectedDevice ? (
-                    <View style={styles.connectedStatus}>
-                        <View style={styles.statusIndicator} />
-                        <Text style={styles.statusText}>
-                            ESP32 Connected: {deviceInfo?.name || 'Unknown'}
-                        </Text>
-                    </View>
-                ) : isScanning ? (
-                    <View style={styles.scanningStatus}>
-                        <Text style={styles.statusText}>Scanning for ESP32...</Text>
-                    </View>
-                ) : null}
-            </View>
-
-            {/* ESP32 Data Display */}
-            {receivedData && (
-                <View style={styles.dataContainer}>
-                    <Text style={styles.dataLabel}>ESP32 Data</Text>
-                    <Text style={styles.dataValue}>{receivedData}</Text>
-                    {connectedDevice && (
-                        <TouchableOpacity style={styles.testButton} onPress={sendTestCommand}>
-                            <Text style={styles.testButtonText}>Send Test Command</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            )}
-
-            {/* ESP32 Device List */}
-            {isScanning && allDevices.length > 0 && (
-                <View style={styles.deviceList}>
-                    <Text style={styles.deviceListTitle}>Found ESP32 Devices:</Text>
-                    {allDevices.slice(0, 4).map((device) => (
-                        <TouchableOpacity
-                            key={device.id}
-                            style={styles.deviceItem}
-                            onPress={() => handleDeviceSelect(device)}
-                        >
-                            <Text style={styles.deviceName}>
-                                {device.name || device.localName || 'ESP32 Device'}
-                            </Text>
-                            <Text style={styles.deviceId}>
-                                {device.id.substring(0, 8)}...
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            )}
-
-            {/* Connection Instructions */}
-            {!connectedDevice && !isScanning && allDevices.length === 0 && (
-                <View style={styles.instructionsContainer}>
-                    <Text style={styles.instructionsTitle}>Connect to ESP32-C3</Text>
-                    <Text style={styles.instructionsText}>
-                        1. Make sure your ESP32 is running BLE code{'\n'}
-                        2. Tap the chip icon to scan{'\n'}
-                        3. Select your ESP32 from the list
-                    </Text>
-                </View>
-            )}
-        </SafeAreaProvider>
-    );
+// Conditional import to avoid bundling issues
+let BleManager: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    const BLE = require('react-native-ble-plx');
+    BleManager = BLE.BleManager;
+  } catch (error) {
+    console.log('BLE not available:', error);
+  }
 }
 
-const styles = StyleSheet.create({
-    background: {
-        flex: 1,
-        width: "100%",
-        height: "100%",
-        position: "absolute",
-    },
-    settingsButton: {
-        position: "absolute",
-        top: 60,
-        right: 20,
-        padding: 10,
-        backgroundColor: "transparent",
-        borderRadius: 50,
-        elevation: 5,
-        shadowOpacity: 0,
-    },
-    exportButton: {
-        position: "absolute",
-        top: 60,
-        right: 60,
-        padding: 10,
-        backgroundColor: "transparent",
-        borderRadius: 50,
-        elevation: 5,
-        shadowOpacity: 0,
-    },
-    esp32Button: {
-        position: "absolute",
-        top: 60,
-        right: 100,
-        padding: 10,
-        backgroundColor: "transparent",
-        borderRadius: 50,
-        elevation: 5,
-        shadowOpacity: 0,
-    },
-    statusContainer: {
-        position: "absolute",
-        top: 120,
-        left: 20,
-        right: 20,
-    },
-    connectedStatus: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "rgba(76, 175, 80, 0.9)",
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        alignSelf: "flex-start",
-    },
-    scanningStatus: {
-        backgroundColor: "rgba(255, 152, 0, 0.9)",
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        alignSelf: "flex-start",
-    },
-    statusIndicator: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "white",
-        marginRight: 8,
-    },
-    statusText: {
-        color: "white",
-        fontSize: 14,
-        fontWeight: "500",
-    },
-    dataContainer: {
-        position: "absolute",
-        bottom: 120,
-        left: 20,
-        right: 20,
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
-        padding: 16,
-        borderRadius: 12,
-    },
-    dataLabel: {
-        color: "orange",
-        fontSize: 12,
-        fontWeight: "bold",
-        marginBottom: 4,
-    },
-    dataValue: {
-        color: "white",
-        fontSize: 16,
-        fontFamily: "monospace",
-        marginBottom: 8,
-    },
-    testButton: {
-        backgroundColor: "orange",
-        padding: 8,
-        borderRadius: 6,
-        alignItems: "center",
-    },
-    testButtonText: {
-        color: "black",
-        fontSize: 12,
-        fontWeight: "bold",
-    },
-    deviceList: {
-        position: "absolute",
-        bottom: 200,
-        left: 20,
-        right: 20,
-        backgroundColor: "rgba(0, 0, 0, 0.9)",
-        padding: 16,
-        borderRadius: 12,
-        maxHeight: 250,
-    },
-    deviceListTitle: {
-        color: "orange",
-        fontSize: 14,
-        fontWeight: "bold",
-        marginBottom: 8,
-    },
-    deviceItem: {
-        backgroundColor: "rgba(255, 255, 255, 0.1)",
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 4,
-    },
-    deviceName: {
-        color: "white",
-        fontSize: 14,
-        fontWeight: "bold",
-    },
-    deviceId: {
-        color: "#ccc",
-        fontSize: 12,
-    },
-    instructionsContainer: {
-        position: "absolute",
-        bottom: 150,
-        left: 20,
-        right: 20,
-        backgroundColor: "rgba(0, 0, 0, 0.7)",
-        padding: 20,
-        borderRadius: 12,
-    },
-    instructionsTitle: {
-        color: "orange",
-        fontSize: 16,
-        fontWeight: "bold",
-        marginBottom: 8,
-        textAlign: "center",
-    },
-    instructionsText: {
-        color: "white",
-        fontSize: 14,
-        lineHeight: 20,
-    },
-});
+interface BLEDevice {
+  id: string;
+  name: string | null;
+  rssi: number;
+}
 
-export const unstable_settings = {
-    initialRoute: true,
+interface BLEHook {
+  devices: BLEDevice[];
+  isScanning: boolean;
+  connectedDevice: BLEDevice | null;
+  bluetoothState: string;
+  startScan: () => Promise<void>;
+  stopScan: () => void;
+  connectToDevice: (device: BLEDevice) => Promise<void>;
+  disconnect: () => Promise<void>;
+  isConnected: boolean;
+}
+
+export const useBLE = (): BLEHook => {
+  const [devices, setDevices] = useState<BLEDevice[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const [connectedDevice, setConnectedDevice] = useState<BLEDevice | null>(null);
+  const [bluetoothState, setBluetoothState] = useState('Unknown');
+  const [manager, setManager] = useState<any>(null);
+
+  useEffect(() => {
+    if (BleManager && Platform.OS !== 'web') {
+      const bleManager = new BleManager();
+      setManager(bleManager);
+
+      const subscription = bleManager.onStateChange((state: string) => {
+        setBluetoothState(state);
+        if (state === 'PoweredOff') {
+          setDevices([]);
+          setConnectedDevice(null);
+        }
+      }, true);
+
+      return () => {
+        subscription.remove();
+        bleManager.destroy();
+      };
+    }
+  }, []);
+
+  const requestPermissions = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') return true;
+
+    try {
+      const apiLevel = Platform.constants.Release;
+
+      if (apiLevel >= 31) {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ]);
+
+        return Object.values(granted).every(
+          permission => permission === PermissionsAndroid.RESULTS.GRANTED
+        );
+      } else {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADMIN,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ]);
+
+        return Object.values(granted).every(
+          permission => permission === PermissionsAndroid.RESULTS.GRANTED
+        );
+      }
+    } catch (error) {
+      console.error('Permission request error:', error);
+      return false;
+    }
+  };
+
+  const startScan = async (): Promise<void> => {
+    if (!manager) {
+      Alert.alert('BLE Not Available', 'Bluetooth Low Energy is not available');
+      return;
+    }
+
+    if (bluetoothState !== 'PoweredOn') {
+      Alert.alert('Bluetooth Off', 'Please turn on Bluetooth to scan for devices');
+      return;
+    }
+
+    const hasPermissions = await requestPermissions();
+    if (!hasPermissions) {
+      Alert.alert('Permissions Required', 'Bluetooth permissions are needed');
+      return;
+    }
+
+    setIsScanning(true);
+    setDevices([]);
+
+    manager.startDeviceScan(null, null, (error: any, device: any) => {
+      if (error) {
+        console.error('Scan error:', error);
+        setIsScanning(false);
+        Alert.alert('Scan Error', error.message);
+        return;
+      }
+
+      if (device && (device.name || device.localName)) {
+        setDevices(prevDevices => {
+          const exists = prevDevices.find(d => d.id === device.id);
+          if (!exists) {
+            return [...prevDevices, {
+              id: device.id,
+              name: device.name || device.localName,
+              rssi: device.rssi
+            }];
+          }
+          return prevDevices;
+        });
+      }
+    });
+
+    // Auto-stop scanning after 15 seconds
+    setTimeout(() => {
+      if (isScanning) {
+        stopScan();
+      }
+    }, 15000);
+  };
+
+  const stopScan = (): void => {
+    if (manager) {
+      manager.stopDeviceScan();
+      setIsScanning(false);
+    }
+  };
+
+  const connectToDevice = async (device: BLEDevice): Promise<void> => {
+    if (!manager) {
+      throw new Error('BLE Manager not available');
+    }
+
+    try {
+      stopScan();
+
+      const connected = await manager.connectToDevice(device.id);
+      await connected.discoverAllServicesAndCharacteristics();
+
+      setConnectedDevice(device);
+      Alert.alert('Connected', `Connected to ${device.name}`);
+
+    } catch (error) {
+      console.error('Connection error:', error);
+      Alert.alert('Connection Failed', `Failed to connect: ${error.message}`);
+      throw error;
+    }
+  };
+
+  const disconnect = async (): Promise<void> => {
+    if (!manager || !connectedDevice) return;
+
+    try {
+      await manager.cancelDeviceConnection(connectedDevice.id);
+      setConnectedDevice(null);
+      Alert.alert('Disconnected', 'Device disconnected');
+    } catch (error) {
+      console.error('Disconnection error:', error);
+      throw error;
+    }
+  };
+
+  return {
+    devices,
+    isScanning,
+    connectedDevice,
+    bluetoothState,
+    startScan,
+    stopScan,
+    connectToDevice,
+    disconnect,
+    isConnected: !!connectedDevice,
+  };
 };

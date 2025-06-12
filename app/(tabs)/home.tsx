@@ -4,7 +4,7 @@ import { useNavigation, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useBLE } from "../../hooks/useBLE"; // Add this import
+import { useBLE } from "../../hooks/useBLE";
 
 export default function home() {
     // Remove navigation header
