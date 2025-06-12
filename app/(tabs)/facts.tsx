@@ -155,6 +155,8 @@ export default function Facts({ onToolbarVisibilityChange }: FactsProps) {
   const swipeAnim = useRef(new Animated.Value(0)).current;
   const nextCardScale = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current; // Add this
+  const tinderCardOpacity = useRef(new Animated.Value(1)).current;  // For Tinder card fade
+  const detailScale = useRef(new Animated.Value(0)).current;  // For detail scale
   
 
   useEffect(() => {
@@ -267,20 +269,25 @@ export default function Facts({ onToolbarVisibilityChange }: FactsProps) {
       },
       onPanResponderRelease: (evt, gestureState) => {
         if (gestureState.dx < -50) {
-          showFactDetails(fact, false);
+          showFactDetails(fact);
         }
       },
     });
   };
 
-  const showFactDetails = (fact: Fact, isFromGallery: boolean = false) => {
-    setSelectedFact({ ...fact, isFromGallery });
+  const showFactDetails = (fact: Fact) => {
+    setSelectedFact({ ...fact });
+
+    if (viewMode === "tinder") {
+      opacityAnim.setValue(1); // Make sure card is visible
+    }
+  
+    setSelectedFact(fact);
     
-    if (isFromGallery && onToolbarVisibilityChange) {
+    if (onToolbarVisibilityChange) {
       onToolbarVisibilityChange(false);
     }
     
-    if (isFromGallery) {
       Animated.parallel([
         Animated.timing(scaleAnim, {
           toValue: 1,
@@ -293,156 +300,101 @@ export default function Facts({ onToolbarVisibilityChange }: FactsProps) {
           useNativeDriver: true,
         })
       ]).start();
-    } else {
-      Animated.timing(slideAnim, {
+   
+  };
+
+  const hideFactDetails = () => {
+    // Always show toolbar again (for both modes)
+    if (onToolbarVisibilityChange) {
+      onToolbarVisibilityChange(false);
+    }
+    
+    // Use the same zoom-out animation for both modes
+    Animated.parallel([
+      Animated.timing(scaleAnim, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
-      }).start();
-    }
-  };
-
-const hideFactDetails = () => {
-    if (selectedFact?.isFromGallery && onToolbarVisibilityChange) {
-      onToolbarVisibilityChange(true);
-    }
-    
-    if (selectedFact?.isFromGallery) {
-      Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        })
-      ]).start(() => {
-        setSelectedFact(null);
-      });
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: Dimensions.get('window').width,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
         duration: 300,
         useNativeDriver: true,
-      }).start(() => {
-        setSelectedFact(null);
-      });
-    }
+      })
+    ]).start(() => {
+      setSelectedFact(null); // No idea what this is for
+      
+      // Reset tinder card visibility after animation completes
+      if (viewMode === "tinde") {
+        opacityAnim.setValue(1); // Ensure tinder card is visible
+        swipeAnim.setValue(0);   // Reset position too
+        fadeAnim.setValue(1);
+      }
+    });
   };
 
-  const DetailView = ({ fact }: { fact: FactWithDisplay }) => {
-    const isGallery = fact.isFromGallery;
-    
-    if (isGallery) {
-      return (
-        <>
-          <Animated.View 
-            style={[
-              styles.modalOverlay,
-              { opacity: opacityAnim }
-            ]}
-          >
-            <TouchableOpacity 
-              style={StyleSheet.absoluteFillObject} 
-              onPress={hideFactDetails}
-              activeOpacity={1}
-            />
-          </Animated.View>
-          
-          <Animated.View 
-            style={[
-              styles.modalDetailContainer,
-              {
-                transform: [{ scale: scaleAnim }],
-                opacity: fadeAnim,
-              },
-            ]}
-          >
-            <TouchableOpacity style={styles.modalCloseButton} onPress={hideFactDetails}>
-              <Ionicons name="close" size={28} color="#333" />
-            </TouchableOpacity>
-            
-            <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
-              <Image source={fact.image} style={styles.modalDetailImage} />
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLocation}>{fact.location}</Text>
-                <Text style={styles.detailTitle}>{fact.title}</Text>
-                <View style={styles.didYouKnowCard}>
-                  <Text style={styles.didYouKnowTitle}>Did you know?</Text>
-                  <Text style={styles.didYouKnowText}>{fact.description}</Text>
-                </View>
-                <View style={styles.factsCard}>
-                  {Object.entries({
-                    'Common Name': fact.details.commonName,
-                    'Scientific Name': fact.details.scientificName,
-                    'Type': fact.details.type,
-                    'Diet': fact.details.diet,
-                    'Group Name': fact.details.groupName,
-                    'Average Life Span': fact.details.averageLifeSpan,
-                    'Size': fact.details.size,
-                    'Weight': fact.details.weight,
-                  }).map(([label, value]) => (
-                    <View key={label} style={styles.factRow}>
-                      <Text style={styles.factLabel}>{label}:</Text>
-                      <Text style={styles.factValue}>{value}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text style={styles.longDescription}>{fact.details.longDescription}</Text>
-              </View>
-            </ScrollView>
-          </Animated.View>
-        </>
-      );
-    } else {
-      return (
-        <Animated.View 
-          style={[
-            styles.detailContainer,
-            { transform: [{ translateX: slideAnim }] }
-          ]}
-          {...detailPanResponder.panHandlers}
-        >
-          <TouchableOpacity style={styles.backButton} onPress={hideFactDetails}>
-            <Ionicons name="chevron-back" size={28} color="#333" />
-          </TouchableOpacity>
-          
-          <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
-            <Image source={fact.image} style={styles.detailImage} />
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLocation}>{fact.location}</Text>
-              <Text style={styles.detailTitle}>{fact.title}</Text>
-              <View style={styles.didYouKnowCard}>
-                <Text style={styles.didYouKnowTitle}>Did you know?</Text>
-                <Text style={styles.didYouKnowText}>{fact.description}</Text>
-              </View>
-              <View style={styles.factsCard}>
-                {Object.entries({
-                  'Common Name': fact.details.commonName,
-                  'Scientific Name': fact.details.scientificName,
-                  'Type': fact.details.type,
-                  'Diet': fact.details.diet,
-                  'Group Name': fact.details.groupName,
-                  'Average Life Span': fact.details.averageLifeSpan,
-                  'Size': fact.details.size,
-                  'Weight': fact.details.weight,
-                }).map(([label, value]) => (
-                  <View key={label} style={styles.factRow}>
-                    <Text style={styles.factLabel}>{label}:</Text>
-                    <Text style={styles.factValue}>{value}</Text>
-                  </View>
-                ))}
-              </View>
-              <Text style={styles.longDescription}>{fact.details.longDescription}</Text>
+  const DetailView = ({ fact }: { fact: Fact }) => {
+  return (
+    <>
+      <Animated.View 
+        style={[
+          styles.modalOverlay,
+          { opacity: fadeAnim }  // Make sure this is fadeAnim, not opacityAnim
+        ]}
+      >
+        <TouchableOpacity 
+          style={StyleSheet.absoluteFillObject} 
+          onPress={hideFactDetails}
+          activeOpacity={1}
+        />
+      </Animated.View>
+      
+      <Animated.View 
+        style={[
+          styles.modalDetailContainer,
+          {
+            transform: [{ scale: scaleAnim }],
+            opacity: fadeAnim,
+          },
+        ]}
+      >
+        <TouchableOpacity style={styles.modalCloseButton} onPress={hideFactDetails} activeOpacity={1}>
+          <Ionicons name="close" size={28} color="#333" />
+        </TouchableOpacity>
+        
+        <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
+          <Image source={fact.image} style={styles.modalDetailImage} />
+          <View style={styles.detailContent}>
+            <Text style={styles.detailLocation}>{fact.location}</Text>
+            <Text style={styles.detailTitle}>{fact.title}</Text>
+            <View style={styles.didYouKnowCard}>
+              <Text style={styles.didYouKnowTitle}>Did you know?</Text>
+              <Text style={styles.didYouKnowText}>{fact.description}</Text>
             </View>
-          </ScrollView>
-        </Animated.View>
-      );
-    }
-  };
+            <View style={styles.factsCard}>
+              {Object.entries({
+                'Common Name': fact.details.commonName,
+                'Scientific Name': fact.details.scientificName,
+                'Type': fact.details.type,
+                'Diet': fact.details.diet,
+                'Group Name': fact.details.groupName,
+                'Average Life Span': fact.details.averageLifeSpan,
+                'Size': fact.details.size,
+                'Weight': fact.details.weight,
+              }).map(([label, value]) => (
+                <View key={label} style={styles.factRow}>
+                  <Text style={styles.factLabel}>{label}:</Text>
+                  <Text style={styles.factValue}>{value}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.longDescription}>{fact.details.longDescription}</Text>
+          </View>
+        </ScrollView>
+      </Animated.View>
+    </>
+  );
+};
 
   return (
     <View style={styles.container}>
@@ -503,7 +455,7 @@ const hideFactDetails = () => {
                 style={[styles.factCard, styles.factCardGallery]}
               >
                 <TouchableOpacity
-                  onPress={() => showFactDetails(fact, true)}
+                  onPress={() => showFactDetails(fact)}
                   activeOpacity={0.7}
                 >
                   <Image 
@@ -563,7 +515,7 @@ const hideFactDetails = () => {
                 ]}
               >
                 <TouchableOpacity
-                  onPress={() => showFactDetails(filteredFacts[currentCardIndex], false)}
+                  onPress={() => showFactDetails(filteredFacts[currentCardIndex])}
                   activeOpacity={0.9}
                   style={{ flex: 1 }} 
                 >
@@ -908,10 +860,10 @@ const styles = StyleSheet.create({
   },
   modalDetailContainer: {
     position: "absolute",
-    top: 40,
-    left: 20,
-    right: 20,
-    bottom: 40,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     zIndex: 1000,
@@ -924,9 +876,9 @@ const styles = StyleSheet.create({
   },
   modalCloseButton: {
     position: "absolute",
-    top: 10,
-    right: 10,
-    padding: 10,
+    top: 50,
+    right: 20,
+    padding: 5,
     zIndex: 1001,
     backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 20,
