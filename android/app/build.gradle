@@ -148,6 +148,7 @@ android {
 }
 
 dependencies {
+    classpath 'com.google.gms:google-services:4.3.15'
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
@@ -175,3 +176,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply plugin: 'com.google.gms.google-services'
