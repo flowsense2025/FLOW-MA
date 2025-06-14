@@ -40,3 +40,4 @@ app-example
 package-lock.json
 
 firebaseConfig.js
+google-services.json
