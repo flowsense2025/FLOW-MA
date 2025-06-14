@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "183230524669",
+    "project_id": "flow-ma-7470a",
+    "storage_bucket": "flow-ma-7470a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:183230524669:android:5795f549d29b8d20b26294",
+        "android_client_info": {
+          "package_name": "com.anonymous.FLOWOW"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRnqwp64xOWpam6b6NVBFbNGc6WkpoauU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
