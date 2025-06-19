@@ -60,6 +60,15 @@ export default function Layout() {
                     ),
                 }}
             />
+            <Tabs.Screen
+              name="sensor"
+              options={{
+                title: 'Sensor',
+                tabBarIcon: ({ color, focused }) => (
+                  <TabBarIcon name={focused ? 'water' : 'water-outline'} color={color} />
+                ),
+              }}
+            />
         </Tabs>
     )
 }

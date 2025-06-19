@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Platform, PermissionsAndroid, Alert } from 'react-native';
 
 // Conditional import to avoid bundling issues
-let BleManager: any = null;
+let BleManager = null;
 if (Platform.OS !== 'web') {
   try {
     const BLE = require('react-native-ble-plx');
@@ -18,16 +18,25 @@ interface BLEDevice {
   rssi: number;
 }
 
+interface SensorData {
+  waterLevel: number;
+  timestamp: number;
+}
+
 interface BLEHook {
   devices: BLEDevice[];
   isScanning: boolean;
   connectedDevice: BLEDevice | null;
   bluetoothState: string;
+  sensorData: SensorData | null;
   startScan: () => Promise<void>;
   stopScan: () => void;
   connectToDevice: (device: BLEDevice) => Promise<void>;
   disconnect: () => Promise<void>;
+  startSensorReading: () => Promise<void>;
+  stopSensorReading: () => void;
   isConnected: boolean;
+  isReadingSensor: boolean;
 }
 
 export const useBLE = (): BLEHook => {
@@ -36,6 +45,13 @@ export const useBLE = (): BLEHook => {
   const [connectedDevice, setConnectedDevice] = useState<BLEDevice | null>(null);
   const [bluetoothState, setBluetoothState] = useState('Unknown');
   const [manager, setManager] = useState<any>(null);
+  const [sensorData, setSensorData] = useState<SensorData | null>(null);
+  const [isReadingSensor, setIsReadingSensor] = useState(false);
+  const [sensorSubscription, setSensorSubscription] = useState<any>(null);
+
+  // TODO: Replace these with your actual UUIDs from your microcontroller
+  const SERVICE_UUID = "your-service-uuid-here";
+  const WATER_LEVEL_CHARACTERISTIC_UUID = "your-characteristic-uuid-here";
 
   useEffect(() => {
     if (BleManager && Platform.OS !== 'web') {
@@ -47,11 +63,16 @@ export const useBLE = (): BLEHook => {
         if (state === 'PoweredOff') {
           setDevices([]);
           setConnectedDevice(null);
+          setSensorData(null);
+          setIsReadingSensor(false);
         }
       }, true);
 
       return () => {
         subscription.remove();
+        if (sensorSubscription) {
+          sensorSubscription.remove();
+        }
         bleManager.destroy();
       };
     }
@@ -61,15 +82,12 @@ export const useBLE = (): BLEHook => {
     if (Platform.OS !== 'android') return true;
 
     try {
-      // Check if permissions are available
       const permissions = [];
 
-      // Add permissions that exist
       if (PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION) {
         permissions.push(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
       }
 
-      // Try to add newer permissions if they exist
       try {
         if (PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN) {
           permissions.push(PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN);
@@ -78,7 +96,6 @@ export const useBLE = (): BLEHook => {
           permissions.push(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
         }
       } catch (e) {
-        // Newer permissions don't exist, use older ones
         if (PermissionsAndroid.PERMISSIONS.BLUETOOTH) {
           permissions.push(PermissionsAndroid.PERMISSIONS.BLUETOOTH);
         }
@@ -89,7 +106,7 @@ export const useBLE = (): BLEHook => {
 
       if (permissions.length === 0) {
         console.log('No permissions to request');
-        return true; // Assume granted if no permissions available
+        return true;
       }
 
       console.log('Requesting permissions:', permissions);
@@ -103,7 +120,6 @@ export const useBLE = (): BLEHook => {
       return allGranted;
     } catch (error) {
       console.error('Permission request error:', error);
-      // Since you manually granted permissions, return true
       return true;
     }
   };
@@ -152,7 +168,6 @@ export const useBLE = (): BLEHook => {
         }
       });
 
-      // Auto-stop scanning after 15 seconds
       setTimeout(() => {
         if (isScanning) {
           stopScan();
@@ -197,8 +212,12 @@ export const useBLE = (): BLEHook => {
     if (!manager || !connectedDevice) return;
 
     try {
+      // Stop sensor reading first
+      stopSensorReading();
+
       await manager.cancelDeviceConnection(connectedDevice.id);
       setConnectedDevice(null);
+      setSensorData(null);
       Alert.alert('Disconnected', 'Device disconnected');
     } catch (error) {
       console.error('Disconnection error:', error);
@@ -206,15 +225,89 @@ export const useBLE = (): BLEHook => {
     }
   };
 
+  // NEW: Start reading sensor data
+  const startSensorReading = async (): Promise<void> => {
+    if (!manager || !connectedDevice) {
+      Alert.alert('Error', 'No device connected');
+      return;
+    }
+
+    try {
+      console.log('Starting sensor reading...');
+
+      // Subscribe to water level characteristic
+      const subscription = manager.monitorCharacteristicForDevice(
+        connectedDevice.id,
+        SERVICE_UUID,
+        WATER_LEVEL_CHARACTERISTIC_UUID,
+        (error: any, characteristic: any) => {
+          if (error) {
+            console.error('Sensor reading error:', error);
+            Alert.alert('Sensor Error', error.message);
+            setIsReadingSensor(false);
+            return;
+          }
+
+          if (characteristic?.value) {
+            try {
+              // TODO: Adjust this parsing based on your sensor's data format
+              // Common formats:
+              // 1. Plain text: "45.2" -> parseFloat(base64decode(value))
+              // 2. JSON: {"water": 45.2} -> JSON.parse(base64decode(value))
+              // 3. Binary data -> custom parsing
+
+              // For now, assuming plain text format:
+              const base64Data = characteristic.value;
+              const textData = atob(base64Data); // Base64 decode
+              const waterLevel = parseFloat(textData);
+
+              if (!isNaN(waterLevel)) {
+                setSensorData({
+                  waterLevel: waterLevel,
+                  timestamp: Date.now()
+                });
+                console.log('Water level received:', waterLevel);
+              }
+            } catch (parseError) {
+              console.error('Data parsing error:', parseError);
+            }
+          }
+        }
+      );
+
+      setSensorSubscription(subscription);
+      setIsReadingSensor(true);
+      console.log('Sensor reading started successfully');
+
+    } catch (error) {
+      console.error('Failed to start sensor reading:', error);
+      Alert.alert('Sensor Error', 'Failed to start reading sensor data');
+    }
+  };
+
+  // NEW: Stop reading sensor data
+  const stopSensorReading = (): void => {
+    if (sensorSubscription) {
+      sensorSubscription.remove();
+      setSensorSubscription(null);
+    }
+    setIsReadingSensor(false);
+    console.log('Sensor reading stopped');
+  };
+
   return {
     devices,
     isScanning,
     connectedDevice,
     bluetoothState,
+    sensorData,
     startScan,
     stopScan,
     connectToDevice,
     disconnect,
+    startSensorReading,
+    stopSensorReading,
     isConnected: !!connectedDevice,
+    isReadingSensor,
   };
 };
