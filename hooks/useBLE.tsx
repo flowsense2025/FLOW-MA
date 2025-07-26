@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Platform, PermissionsAndroid, Alert } from 'react-native';
+import { Buffer } from 'buffer';
 
 // Conditional import to avoid bundling issues
 let BleManager = null;
@@ -50,8 +51,8 @@ export const useBLE = (): BLEHook => {
   const [sensorSubscription, setSensorSubscription] = useState<any>(null);
 
   // TODO: Replace these with your actual UUIDs from your microcontroller
-  const SERVICE_UUID = "your-service-uuid-here";
-  const WATER_LEVEL_CHARACTERISTIC_UUID = "your-characteristic-uuid-here";
+const SERVICE_UUID = "0000180D-0000-1000-8000-00805F9B34FB";
+const WATER_LEVEL_CHARACTERISTIC_UUID = "00002A37-0000-1000-8000-00805F9B34FB";
 
   useEffect(() => {
     if (BleManager && Platform.OS !== 'web') {
@@ -225,65 +226,109 @@ export const useBLE = (): BLEHook => {
     }
   };
 
-  // NEW: Start reading sensor data
-  const startSensorReading = async (): Promise<void> => {
-    if (!manager || !connectedDevice) {
-      Alert.alert('Error', 'No device connected');
-      return;
-    }
+const startSensorReading = async (): Promise<void> => {
+  if (!manager || !connectedDevice) {
+    Alert.alert('Error', 'No device connected');
+    return;
+  }
 
-    try {
-      console.log('Starting sensor reading...');
+  try {
+    console.log('Starting sensor reading...');
+    console.log('Service UUID:', SERVICE_UUID);
+    console.log('Characteristic UUID:', WATER_LEVEL_CHARACTERISTIC_UUID);
 
-      // Subscribe to water level characteristic
-      const subscription = manager.monitorCharacteristicForDevice(
-        connectedDevice.id,
-        SERVICE_UUID,
-        WATER_LEVEL_CHARACTERISTIC_UUID,
-        (error: any, characteristic: any) => {
-          if (error) {
-            console.error('Sensor reading error:', error);
-            Alert.alert('Sensor Error', error.message);
-            setIsReadingSensor(false);
-            return;
-          }
+    const subscription = manager.monitorCharacteristicForDevice(
+      connectedDevice.id,
+      SERVICE_UUID,
+      WATER_LEVEL_CHARACTERISTIC_UUID,
+      (error: any, characteristic: any) => {
+        if (error) {
+          console.error('Sensor reading error:', error);
+          Alert.alert('Sensor Error', error.message);
+          setIsReadingSensor(false);
+          return;
+        }
 
-          if (characteristic?.value) {
+        if (characteristic?.value) {
+          try {
+            console.log('Raw characteristic value:', characteristic.value);
+
+            const base64Data = characteristic.value;
+            console.log('Base64 data:', base64Data);
+
+            // Method 1: Try text decoding
             try {
-              // TODO: Adjust this parsing based on your sensor's data format
-              // Common formats:
-              // 1. Plain text: "45.2" -> parseFloat(base64decode(value))
-              // 2. JSON: {"water": 45.2} -> JSON.parse(base64decode(value))
-              // 3. Binary data -> custom parsing
-
-              // For now, assuming plain text format:
-              const base64Data = characteristic.value;
-              const textData = atob(base64Data); // Base64 decode
+              const textData = atob(base64Data);
+              console.log('Decoded text:', textData);
               const waterLevel = parseFloat(textData);
 
               if (!isNaN(waterLevel)) {
+                console.log('Parsed water level (text):', waterLevel);
                 setSensorData({
                   waterLevel: waterLevel,
                   timestamp: Date.now()
                 });
-                console.log('Water level received:', waterLevel);
+                return;
               }
-            } catch (parseError) {
-              console.error('Data parsing error:', parseError);
+            } catch (e) {
+              console.log('Text parsing failed:', e);
             }
+
+            // Method 2: Try as heart rate format (simple byte array)
+            try {
+              const binaryString = atob(base64Data);
+              const bytes = [];
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes.push(binaryString.charCodeAt(i));
+              }
+
+              console.log('Bytes:', bytes);
+
+              if (bytes.length >= 2) {
+                // Heart rate format: byte[0] = flags, byte[1] = value
+                const value = bytes[1];
+                console.log('Heart rate/sensor value:', value);
+
+                setSensorData({
+                  waterLevel: value,
+                  timestamp: Date.now()
+                });
+                return;
+              }
+
+              if (bytes.length >= 1) {
+                // Just use first byte
+                const value = bytes[0];
+                console.log('First byte value:', value);
+
+                ({
+                  waterLevel: value,
+                  timestamp: Date.now()
+                });
+                return;
+              }
+            } catch (e) {
+              console.log('Binary parsing failed:', e);
+            }
+
+          } catch (parseError) {
+            console.error('Data parsing error:', parseError);
           }
+        } else {
+          console.log('No characteristic value received');
         }
-      );
+      }
+    );
 
-      setSensorSubscription(subscription);
-      setIsReadingSensor(true);
-      console.log('Sensor reading started successfully');
+    setSensorSubscription(subscription);
+    setIsReadingSensor(true);
+    console.log('Sensor reading started successfully');
 
-    } catch (error) {
-      console.error('Failed to start sensor reading:', error);
-      Alert.alert('Sensor Error', 'Failed to start reading sensor data');
-    }
-  };
+  } catch (error) {
+    console.error('Failed to start sensor reading:', error);
+    Alert.alert('Sensor Error', 'Failed to start reading sensor data');
+  }
+};
 
   // NEW: Stop reading sensor data
   const stopSensorReading = (): void => {

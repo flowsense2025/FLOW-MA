@@ -18,17 +18,17 @@ import { useBLE } from '../../hooks/useBLE';
 const WaterLevelDisplay = ({ waterLevel, isConnected, lastUpdate }) => {
   const getWaterLevelColor = (level) => {
     if (!level && level !== 0) return '#9CA3AF';
-    if (level < 20) return '#EF4444';
-    if (level < 40) return '#F97316';
-    if (level < 70) return '#EAB308';
-    return '#22C55E';
+    if (level < 200) return '#EF4444'; // Less than 200mL = red
+    if (level < 400) return '#F97316'; // Less than 400mL = orange
+    if (level < 700) return '#EAB308'; // Less than 700mL = yellow
+    return '#22C55E'; // 700mL+ = green
   };
 
   const getBackgroundColor = (level) => {
     if (!level && level !== 0) return '#F9FAFB';
-    if (level < 20) return '#FEF2F2';
-    if (level < 40) return '#FFF7ED';
-    if (level < 70) return '#FEFCE8';
+    if (level < 200) return '#FEF2F2';
+    if (level < 400) return '#FFF7ED';
+    if (level < 700) return '#FEFCE8';
     return '#F0FDF4';
   };
 
@@ -70,8 +70,8 @@ const WaterLevelDisplay = ({ waterLevel, isConnected, lastUpdate }) => {
               styles.waterValue,
               { color: getWaterLevelColor(waterLevel) }
             ]}>
-              {waterLevel.toFixed(1)}
-              <Text style={styles.unit}>L</Text>
+              {waterLevel.toFixed(0)}
+              <Text style={styles.unit}>mL</Text>
             </Text>
             {lastUpdate && (
               <Text style={styles.lastUpdate}>
@@ -95,15 +95,15 @@ const WaterLevelDisplay = ({ waterLevel, isConnected, lastUpdate }) => {
               style={[
                 styles.progressFill,
                 {
-                  width: `${Math.min(waterLevel, 100)}%`,
+                  width: `${Math.min(waterLevel / 10, 100)}%`, // Scale for 1000mL max
                   backgroundColor: getWaterLevelColor(waterLevel)
                 }
               ]}
             />
           </View>
           <View style={styles.progressLabels}>
-            <Text style={styles.progressLabel}>0L</Text>
-            <Text style={styles.progressLabel}>100L</Text>
+            <Text style={styles.progressLabel}>0mL</Text>
+            <Text style={styles.progressLabel}>1000mL</Text>
           </View>
         </View>
       )}
@@ -158,7 +158,12 @@ export default function SensorTab() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+        bounces={false}
+      >
 
         {/* Bluetooth Status */}
         {!isBluetoothReady && (
@@ -206,12 +211,20 @@ export default function SensorTab() {
                   <Text style={styles.sectionTitle}>
                     Found {devices.length} device(s):
                   </Text>
-                  <FlatList
-                    data={devices}
-                    keyExtractor={(item) => item.id}
-                    renderItem={renderDevice}
-                    scrollEnabled={false}
-                  />
+                  {devices.map((item, index) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.deviceItem}
+                      onPress={() => connectToDevice(item)}
+                    >
+                      <View style={styles.deviceInfo}>
+                        <Text style={styles.deviceName}>{item.name || 'Unknown Device'}</Text>
+                        <Text style={styles.deviceDetails}>Signal: {item.rssi} dBm</Text>
+                        <Text style={styles.deviceId}>ID: {item.id.substring(0, 8)}...</Text>
+                      </View>
+                      <Text style={styles.connectText}>Tap to Connect</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               )}
 
@@ -281,7 +294,7 @@ export default function SensorTab() {
             3. Tap "Scan for Devices" to find your sensor{'\n'}
             4. Tap on your device name to connect{'\n'}
             5. Press "Start Reading" to monitor water levels{'\n'}
-            6. View real-time water level data above
+            6. View real-time water level data in milliliters (mL) above
           </Text>
         </View>
 
@@ -309,8 +322,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  scrollContainer: {
+    flex: 1,
+  },
   scrollContent: {
     padding: 16,
+    paddingBottom: 150, // Increase padding to avoid tab bar
+    minHeight: '100%',
   },
 
   // Bluetooth Warning Styles
@@ -478,6 +496,8 @@ const styles = StyleSheet.create({
   // Device List Styles
   deviceListContainer: {
     marginTop: 16,
+    marginBottom: 30,
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 18,

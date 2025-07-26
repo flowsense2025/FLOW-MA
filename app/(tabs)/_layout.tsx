@@ -63,9 +63,13 @@ export default function Layout() {
             <Tabs.Screen
               name="sensor"
               options={{
-                title: 'Sensor',
+                tabBarLabel: 'Sensor',
                 tabBarIcon: ({ color, focused }) => (
-                  <TabBarIcon name={focused ? 'water' : 'water-outline'} color={color} />
+                  <Ionicons
+                    name={focused ? 'hardware-chip' : 'hardware-chip-outline'}
+                    size={20}
+                    color={"orange"}
+                  />
                 ),
               }}
             />
